@@ -1,145 +1,129 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { LoginForm } from './components/LoginForm'
-import { Layout } from './components/Layout'
-import { SettingsModal } from './components/SettingsModal'
 import { useAuthStore } from './store/authStore'
-import { useDataStore } from './store/dataStore'
-import { seedInitialData } from './lib/firebase'
-
-// Import page components
-import { AdminDashboard } from './components/pages/admin/AdminDashboard'
-import { StudentDashboard } from './components/pages/student/StudentDashboard'
-import { PaymentStatus } from './components/pages/student/PaymentStatus'
-import { BursarPayments } from './components/pages/bursar/BursarPayments'
-
-// Placeholder components for other routes
-const AdminStudents = () => <div className="text-white">Manage Students - Coming Soon</div>
-const AdminFinancialActivity = () => <div className="text-white">Financial Activity - Coming Soon</div>
-const AdminConfig = () => <div className="text-white">Fee/Term Config - Coming Soon</div>
-const AdminNotifications = () => <div className="text-white">Admin Notifications - Coming Soon</div>
-
-const BursarAdjustments = () => <div className="text-white">Fee Adjustments - Coming Soon</div>
-const BursarReconciliation = () => <div className="text-white">Daily Reconciliation - Coming Soon</div>
-
-const StudentPayments = () => <div className="text-white">Payment History - Coming Soon</div>
+import { initializeDatabase } from './lib/firebase'
+import { Layout } from './components/Layout/Layout'
+import { LoginForm } from './components/Auth/LoginForm'
+import { AdminDashboard } from './pages/Admin/AdminDashboard'
+import { ManageStudents } from './pages/Admin/ManageStudents'
+import { StudentDashboard } from './pages/Student/StudentDashboard'
+import { PaymentProcess } from './pages/Student/PaymentProcess'
+import { PaymentStatus } from './pages/Student/PaymentStatus'
+import { LoadingSpinner } from './components/Common/LoadingSpinner'
 
 function App() {
-  const { isAuthenticated, user, checkAuth } = useAuthStore()
-  const { subscribeToStudents, subscribeToTransactions, subscribeToConfig, subscribeToNotifications } = useDataStore()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { isAuthenticated, user, setLoading, isLoading } = useAuthStore()
 
   useEffect(() => {
-    checkAuth()
-    seedInitialData()
-  }, [checkAuth])
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      // Subscribe to real-time data
-      const unsubscribeStudents = subscribeToStudents()
-      const unsubscribeTransactions = subscribeToTransactions()
-      const unsubscribeConfig = subscribeToConfig()
-      const unsubscribeNotifications = subscribeToNotifications(user.id)
-
-      return () => {
-        unsubscribeStudents()
-        unsubscribeTransactions()
-        unsubscribeConfig()
-        unsubscribeNotifications()
+    const initApp = async () => {
+      setLoading(true)
+      try {
+        await initializeDatabase()
+      } catch (error) {
+        console.error('Failed to initialize database:', error)
+      } finally {
+        setLoading(false)
       }
     }
-  }, [isAuthenticated, user, subscribeToStudents, subscribeToTransactions, subscribeToConfig, subscribeToNotifications])
 
-  if (!isAuthenticated) {
+    initApp()
+  }, [setLoading])
+
+  if (isLoading) {
     return (
-      <>
-        <LoginForm />
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#1e293b',
-              color: '#e2e8f0',
-              border: '1px solid #475569'
-            }
-          }}
-        />
-      </>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Initializing Mwenezi High Fees Management..." />
+      </div>
     )
   }
 
-  const getDefaultRoute = () => {
-    switch (user?.role) {
-      case 'admin':
-        return '/admin/dashboard'
-      case 'bursar':
-        return '/bursar/payments'
-      case 'student':
-        return '/student/dashboard'
-      default:
-        return '/login'
-    }
-  }
-
   return (
-    <Router>
-      <Layout onSettingsClick={() => setSettingsOpen(true)}>
+    <div className="min-h-screen bg-slate-900">
+      <Router>
         <Routes>
-          {/* Default redirect */}
-          <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
-          
-          {/* Admin routes */}
-          {user?.role === 'admin' && (
-            <>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/students" element={<AdminStudents />} />
-              <Route path="/admin/financial-activity" element={<AdminFinancialActivity />} />
-              <Route path="/admin/config" element={<AdminConfig />} />
-              <Route path="/admin/notifications" element={<AdminNotifications />} />
-            </>
+          {/* Public Routes */}
+          <Route 
+            path="/login" 
+            element={
+              isAuthenticated ? (
+                <Navigate to={`/${user?.role}`} replace />
+              ) : (
+                <LoginForm />
+              )
+            } 
+          />
+
+          {/* Protected Routes */}
+          {isAuthenticated ? (
+            <Route path="/" element={<Layout />}>
+              {/* Admin Routes */}
+              {user?.role === 'admin' && (
+                <>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/students" element={<ManageStudents />} />
+                  <Route path="/admin/students/new" element={<div>Create Student (Coming Soon)</div>} />
+                  <Route path="/admin/student/:id" element={<div>Student Profile (Coming Soon)</div>} />
+                  <Route path="/admin/transactions" element={<div>Financial Activity (Coming Soon)</div>} />
+                  <Route path="/admin/config" element={<div>Fee/Term Config (Coming Soon)</div>} />
+                  <Route path="/admin/notifications" element={<div>Notifications (Coming Soon)</div>} />
+                </>
+              )}
+
+              {/* Bursar Routes */}
+              {user?.role === 'bursar' && (
+                <>
+                  <Route path="/bursar" element={<div>Bursar Dashboard (Coming Soon)</div>} />
+                  <Route path="/bursar/payments" element={<div>Process Payments (Coming Soon)</div>} />
+                  <Route path="/bursar/reconciliation" element={<div>Daily Reconciliation (Coming Soon)</div>} />
+                </>
+              )}
+
+              {/* Student Routes */}
+              {user?.role === 'student' && (
+                <>
+                  <Route path="/student" element={<StudentDashboard />} />
+                  <Route path="/student/payment-process" element={<PaymentProcess />} />
+                  <Route path="/student/payments" element={<div>Payment History (Coming Soon)</div>} />
+                </>
+              )}
+
+              {/* Redirect to role-specific dashboard */}
+              <Route path="/" element={<Navigate to={`/${user?.role}`} replace />} />
+            </Route>
+          ) : (
+            <Route path="*" element={<Navigate to="/login" replace />} />
           )}
-          
-          {/* Bursar routes */}
-          {user?.role === 'bursar' && (
-            <>
-              <Route path="/bursar/payments" element={<BursarPayments />} />
-              <Route path="/bursar/adjustments" element={<BursarAdjustments />} />
-              <Route path="/bursar/reconciliation" element={<BursarReconciliation />} />
-            </>
-          )}
-          
-          {/* Student routes */}
-          {user?.role === 'student' && (
-            <>
-              <Route path="/student/dashboard" element={<StudentDashboard />} />
-              <Route path="/student/payments" element={<StudentPayments />} />
-              <Route path="/student/payment-status" element={<PaymentStatus />} />
-            </>
-          )}
-          
-          {/* Catch all - redirect to role-based home */}
-          <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
+
+          {/* Payment Status Route (can be accessed without layout) */}
+          <Route path="/student/payment-status" element={<PaymentStatus />} />
         </Routes>
-      </Layout>
-      
-      <SettingsModal 
-        isOpen={settingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
-      />
-      
-      <Toaster 
+      </Router>
+
+      <Toaster
         position="top-right"
         toastOptions={{
+          duration: 4000,
           style: {
             background: '#1e293b',
             color: '#e2e8f0',
-            border: '1px solid #475569'
+            border: '1px solid #374151'
+          },
+          success: {
+            iconTheme: {
+              primary: '#22c55e',
+              secondary: '#1e293b'
+            }
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#1e293b'
+            }
           }
         }}
       />
-    </Router>
+    </div>
   )
 }
 

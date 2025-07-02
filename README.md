@@ -1,388 +1,322 @@
 # Mwenezi High Fees Management PWA
 
-A comprehensive Progressive Web Application for managing school fees with integrated ZbPay payment gateway, role-based access control, and real-time data synchronization.
+A comprehensive Progressive Web Application for managing school fees at Mwenezi High School. The application integrates with ZbPay Payment Gateway for secure online payments and provides role-based access for administrators, bursars, and students.
 
-## 🎯 Project Overview
+## 🌟 Features
 
-The Mwenezi High Fees Management PWA is a production-ready application designed to streamline fee collection and management for educational institutions. Built with modern web technologies, it provides a secure, intuitive platform for administrators, bursars, and students to manage financial transactions seamlessly.
+### Admin Features
+- **Dashboard**: Interactive overview with payment trends and statistics
+- **Student Management**: Complete student enrollment and profile management
+- **Financial Activity**: Transaction monitoring and reporting
+- **Fee Configuration**: Term and fee structure management
+- **Notifications**: Real-time system notifications
 
-**Philosophy:** "Relevant Education for Livelihood" - Empowering educational excellence through efficient financial management.
+### Bursar Features
+- **Payment Processing**: Cash payment handling with receipt generation
+- **Daily Reconciliation**: Financial reporting and transaction summaries
+- **Fee Adjustments**: Authorized fee modifications and waivers
 
-## ✨ Key Features
-
-### 🔐 Role-Based Access Control
-- **Admin**: Complete system management, student creation, financial oversight, fee configuration
-- **Bursar**: Cash payment processing, fee adjustments, daily reconciliation
-- **Student**: Balance viewing, online payments via ZbPay, payment history
-
-### 💳 ZbPay Payment Gateway Integration
-- Live sandbox environment integration with ZbPay API
-- Secure server-side payment processing via Netlify Functions
-- Real-time payment status updates and webhooks
-- Comprehensive transaction tracking and receipt generation
-
-### 📊 Financial Management
-- Automated balance calculations based on student categories
-- Term-based fee structure with flexible adjustment capabilities
-- Detailed transaction history with audit trails
-- Receipt generation with printing functionality
-
-### 📱 Progressive Web App Features
-- Installable on all devices (iOS, Android, Desktop)
-- Offline read-only mode for cached data
-- Push notifications for payment updates
-- Responsive design optimized for all screen sizes
-
-### 🎨 Premium Design System
-- Dark theme with academic color palette (Maroon primary, Amber accents)
-- Smooth animations and micro-interactions
-- Premium typography using Inter font family
-- Consistent UI components built with shadcn/ui
-
-### ⚙️ Settings & Account Management
-- Password change functionality for all users
-- Username update capabilities
-- Secure verification processes
-- Admin notifications for account changes
+### Student Features
+- **Payment Dashboard**: Outstanding balance and payment history
+- **Online Payments**: Secure ZbPay integration for fee payments
+- **Payment Status**: Real-time payment confirmation and receipts
+- **Account Overview**: Term-by-term fee breakdown
 
 ## 🛠 Technology Stack
 
 ### Frontend
-- **React 18** with TypeScript for type-safe development
-- **Vite** for lightning-fast build and development
-- **Tailwind CSS** for utility-first styling
-- **shadcn/ui** for consistent, accessible UI components
-- **Framer Motion** for smooth animations
-- **Zustand** for lightweight state management
-- **React Hook Form + Zod** for form validation
-- **Recharts** for data visualization
+- **React 18** with TypeScript
+- **Vite** for build tooling
+- **Tailwind CSS** for styling
+- **shadcn/ui** component library
+- **Framer Motion** for animations
+- **Zustand** for state management
+- **React Router** for navigation
+- **React Hook Form + Zod** for forms
 
-### Backend & Database
-- **Firebase Realtime Database** for real-time data synchronization
-- **Netlify Functions** (Node.js) for secure server-side logic
-- **ZbPay API** integration for payment processing
+### Backend
+- **Netlify Functions** for serverless API
+- **Firebase Realtime Database** for data storage
+- **ZbPay Payment Gateway** integration
 
-### Development Tools
-- **TypeScript** for enhanced developer experience
-- **ESLint** for code quality
-- **React Hot Toast** for user notifications
+### PWA Features
+- **Service Worker** for offline functionality
+- **Web App Manifest** for installability
+- **Push Notifications** support
+- **Responsive Design** for all devices
 
-## 🚀 Complete Setup Instructions
+## 🚀 Setup Instructions
 
 ### Prerequisites
-- Node.js 16+ and npm
-- Git
-- Netlify account
-- Firebase project
+- Node.js 18+ and npm
+- Firebase project with Realtime Database
+- Netlify account for deployment
+- ZbPay sandbox credentials
 
-### 1. Repository Setup
-
+### 1. Clone and Install
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/mwenezi-fees-management.git
-cd mwenezi-fees-management
-
-# Install dependencies
+git clone <repository-url>
+cd mwenezi-high-fees-management
 npm install
 ```
 
 ### 2. Firebase Configuration
-
-1. **Create Firebase Project:**
-   - Go to [Firebase Console](https://console.firebase.google.com)
-   - Click "Create a project"
-   - Name it "mwenezi-fees-management"
-   - Enable Google Analytics (optional)
-
-2. **Setup Realtime Database:**
-   - In Firebase Console, go to "Realtime Database"
-   - Click "Create Database"
-   - Choose "Start in test mode"
-   - Select your preferred location
-
-3. **Get Firebase Configuration:**
-   - Go to Project Settings > General
-   - Scroll to "Your apps" section
-   - Click "Add app" > Web
-   - Register app with nickname "Mwenezi Fees PWA"
-   - Copy the configuration object
-
-4. **Update Firebase Config:**
-   - Replace the config in `src/lib/firebase.ts` with your actual Firebase config
-
-5. **Setup Service Account (for Netlify Functions):**
-   - Go to Project Settings > Service Accounts
-   - Click "Generate new private key"
-   - Download the JSON file
-   - Keep this file secure - you'll need values from it
-
-### 3. Netlify Deployment Setup
-
-1. **Connect to Netlify:**
-   ```bash
-   # Initialize git repository (if not already done)
-   git init
-   git add .
-   git commit -m "Initial commit"
-   
-   # Create GitHub repository and push
-   git remote add origin https://github.com/yourusername/mwenezi-fees-management.git
-   git branch -M main
-   git push -u origin main
-   ```
-
-2. **Deploy to Netlify:**
-   - Go to [Netlify](https://netlify.com)
-   - Click "New site from Git"
-   - Connect your GitHub repository
-   - Set build command: `npm run build`
-   - Set publish directory: `dist`
-   - Click "Deploy site"
-
-3. **Configure Custom Domain:**
-   - In Netlify dashboard, go to "Domain settings"
-   - Add custom domain: `mghpayfees.netlify.app`
-   - Follow DNS configuration instructions
-
-### 4. Environment Variables Setup
-
-In your Netlify dashboard, go to "Site settings" > "Environment variables" and add these variables:
-
-**Copy and paste these exact variable names and values:**
-
-```bash
-# Firebase Configuration (Replace with your actual values)
-FIREBASE_PROJECT_ID=mwenezi-fees-management
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@mwenezi-fees-management.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----
-FIREBASE_DATABASE_URL=https://mwenezi-fees-management-default-rtdb.firebaseio.com
-
-# ZbPay Configuration (Sandbox - Use these exact values)
-ZBPAY_API_KEY=3f36fd4b-3b23-4249-b65d-f39dc9df42d4
-ZBPAY_API_SECRET=2f2c32d7-7a32-4523-bcde-1913bf7c171d
-ZBPAY_BASE_URL=https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway
-
-# Application URLs (Replace with your actual domain)
-SITE_URL=https://mghpayfees.netlify.app
-RETURN_URL=https://mghpayfees.netlify.app/#/student/payment-status
-WEBHOOK_URL=https://mghpayfees.netlify.app/.netlify/functions/zbPayWebhookHandler
-```
-
-**Important Notes:**
-- Replace `FIREBASE_PROJECT_ID` with your actual Firebase project ID
-- Replace `FIREBASE_CLIENT_EMAIL` with your actual service account email from the downloaded JSON
-- Replace `FIREBASE_PRIVATE_KEY` with your actual private key from the downloaded JSON (keep the `\n` characters)
-- Replace `FIREBASE_DATABASE_URL` with your actual database URL
-- The ZbPay credentials are for sandbox testing - use exactly as shown
-- Replace the URLs with your actual Netlify domain
-
-### 5. Firebase Security Rules
-
-Set up your Firebase Realtime Database rules:
-
-```json
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable Realtime Database
+3. The app uses these Firebase credentials (already configured):
+```javascript
 {
-  "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
-    "users": {
-      ".indexOn": ["username", "role"]
-    },
-    "students": {
-      ".indexOn": ["studentNumber", "name", "surname"]
-    },
-    "transactions": {
-      ".indexOn": ["studentId", "status", "createdAt"]
-    },
-    "notifications": {
-      ".indexOn": ["userId", "userRole", "read"]
-    }
-  }
+  apiKey: "AIzaSyDW_D4-2Tw6TTDhI7WyTtwVCZWn_i52ECY",
+  authDomain: "mwenezihigh.firebaseapp.com",
+  databaseURL: "https://mwenezihigh-default-rtdb.firebaseio.com",
+  projectId: "mwenezihigh",
+  storageBucket: "mwenezihigh.firebasestorage.app",
+  messagingSenderId: "588608479487",
+  appId: "1:588608479487:web:6e5c057d0978769862acca"
 }
 ```
 
-### 6. Local Development
-
-```bash
-# Start development server
-npm run dev
-
-# The app will be available at http://localhost:3000
+### 3. Environment Variables
+Create a `.env` file in the root directory:
+```env
+# Firebase Admin SDK (for Netlify Functions)
+FIREBASE_PROJECT_ID=mwenezihigh
+FIREBASE_CLIENT_EMAIL=your-service-account-email
+FIREBASE_PRIVATE_KEY=your-service-account-private-key
+FIREBASE_DATABASE_URL=https://mwenezihigh-default-rtdb.firebaseio.com
 ```
 
-### 7. Testing ZbPay Integration
-
-1. **Sandbox Environment:**
-   - All ZbPay integration uses sandbox environment
-   - No real money transactions occur
-   - Use test payment methods provided by ZbPay
-
-2. **Test Payment Flow:**
-   - Login as student (MHS-001 / student123)
-   - Click "Pay with ZbPay"
-   - Complete payment on ZbPay sandbox
-   - Return to app to see updated balance
-
-3. **Webhook Testing:**
-   - Use tools like ngrok for local webhook testing
-   - Update webhook URL in environment variables
-   - Monitor Netlify function logs for webhook processing
-
-### 8. Production Deployment Checklist
-
-- [ ] Firebase project created and configured
-- [ ] Netlify site deployed with custom domain
-- [ ] All environment variables set correctly
-- [ ] Firebase security rules configured
-- [ ] ZbPay sandbox integration tested
-- [ ] All user roles tested (Admin, Bursar, Student)
-- [ ] PWA installation tested on mobile devices
-- [ ] Offline functionality verified
-
-## 🔧 ZbPay Integration Details
-
-### Sandbox Environment Configuration
+### 4. ZbPay Integration
+The app is pre-configured with ZbPay sandbox credentials:
 - **API Key**: `3f36fd4b-3b23-4249-b65d-f39dc9df42d4`
 - **API Secret**: `2f2c32d7-7a32-4523-bcde-1913bf7c171d`
 - **Base URL**: `https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway`
 
-### Payment Flow
-1. Student initiates payment from dashboard
-2. `initiateZbPayTransaction` Netlify Function creates transaction
-3. Student redirected to ZbPay hosted payment page
-4. ZbPay processes payment and sends webhook to `zbPayWebhookHandler`
-5. System updates student balance and creates notifications
-6. `checkZbPaymentStatus` provides status polling capability
+### 5. Development Server
+```bash
+npm run dev
+```
+The app will be available at `http://localhost:5173`
 
-### Security Features
-- All ZbPay API calls handled server-side via Netlify Functions
-- API credentials never exposed to frontend
-- Webhook validation and idempotent processing
-- Atomic database operations for financial transactions
+### 6. Build for Production
+```bash
+npm run build
+```
+
+### 7. Deploy to Netlify
+1. Connect your GitHub repository to Netlify
+2. Set build command: `npm run build`
+3. Set publish directory: `dist`
+4. Add environment variables in Netlify dashboard
+5. The app will be available at: `https://mghpayfees.netlify.app/`
 
 ## 👥 Demo Credentials
 
-### Administrator
+### Admin Access
 - **Username**: `admin`
 - **Password**: `admin123`
 
-### Bursar
+### Bursar Access
 - **Username**: `bursar`
 - **Password**: `bursar123`
 
-### Students
-- **Student 1**: `MHS-001` / `student123` (Day Scholar, Form 1A1)
-- **Student 2**: `MHS-002` / `student456` (Boarder, Lower 6 Sciences)
+### Student Access
+- **Username**: `MHS-001`
+- **Password**: `student123`
+
+Additional student:
+- **Username**: `MHS-002`
+- **Password**: `student456`
+
+## 💳 ZbPay Payment Testing
+
+The application uses ZbPay's sandbox environment for testing payments:
+
+1. **Student Login**: Use student credentials to access the dashboard
+2. **Initiate Payment**: Click "Pay Fees Now" and select a term
+3. **ZbPay Redirect**: You'll be redirected to ZbPay's payment page
+4. **Test Payment**: Use ZbPay's test card details in sandbox
+5. **Confirmation**: Return to the app for payment confirmation
+
+### ZbPay Sandbox Details
+- Environment: Sandbox/Testing
+- Currency: USD (Code: 840)
+- Webhook URL: `https://mghpayfees.netlify.app/.netlify/functions/zbPayWebhookHandler`
+- Return URL: `https://mghpayfees.netlify.app/#/student/payment-status`
 
 ## 📱 PWA Installation
 
-### Mobile Devices (iOS/Android)
-1. Open the app in your mobile browser
-2. Look for "Add to Home Screen" option in browser menu
-3. Tap "Add" to install the PWA
+### Desktop
+1. Visit the app in Chrome/Edge
+2. Click the install icon in the address bar
+3. Follow the installation prompts
 
-### Desktop Browsers
-1. Open the app in Chrome, Edge, or similar browser
-2. Look for install icon in address bar
-3. Click "Install" to add to your applications
+### Mobile
+1. Open the app in mobile browser
+2. Tap "Add to Home Screen" in the browser menu
+3. The app icon will appear on your home screen
 
 ## 🔄 Offline Functionality
 
-The PWA provides read-only access to cached data when offline:
-- Student lists and basic information
-- Previously loaded payment history
-- Cached dashboard data
-- App shell and navigation
+The PWA provides limited offline functionality:
+- **Cached Content**: App shell and static assets
+- **Read-Only Data**: Previously viewed student/payment data
+- **Offline Indicator**: Visual feedback when offline
+- **Background Sync**: Automatic sync when connection restored
 
-**Note**: Payment processing and data modifications require internet connection.
+## 🏗 Database Structure
 
-## 🐛 Troubleshooting
+```
+/config
+  /fees (fee structure by grade/type)
+  /activeTerms (current billing terms)
+  /currencyCode (840 for USD)
+
+/users
+  /{userId} (admin, bursar, student accounts)
+
+/students
+  /{studentId}
+    /financials
+      /balance (calculated server-side)
+      /terms/{termKey}
+        /fee
+        /paid
+
+/transactions
+  /{transactionId} (all payment records)
+
+/notifications
+  /{notificationId} (system notifications)
+
+/bursar_activity
+  /{activityId} (bursar transaction logs)
+
+/fee_adjustments
+  /{adjustmentId} (fee modification records)
+```
+
+## 🔐 Security Features
+
+- **Role-based Access Control**: Strict role separation
+- **Server-side Validation**: All financial operations validated
+- **Secure Payment Processing**: ZbPay PCI-compliant integration
+- **Atomic Database Operations**: Prevents data corruption
+- **Audit Trails**: Complete transaction logging
+
+## 📊 Payment Flow
+
+1. **Student Initiates**: Selects term and amount
+2. **Server Validation**: Netlify function validates request
+3. **ZbPay Request**: Creates payment session with ZbPay
+4. **User Redirect**: Student redirected to ZbPay
+5. **Payment Processing**: ZbPay handles payment
+6. **Webhook Notification**: ZbPay notifies app of result
+7. **Status Check**: App polls for payment confirmation
+8. **Account Update**: Student balance updated atomically
+9. **Notification**: Admin notified of successful payment
+
+## 🛠 Netlify Functions
+
+### `initiateZbPayTransaction`
+- Validates payment request
+- Creates pending transaction record
+- Initiates ZbPay payment session
+- Returns payment URL for redirect
+
+### `checkZbPaymentStatus`
+- Polls ZbPay for payment status
+- Updates transaction records
+- Processes successful payments
+- Updates student financial records
+
+### `zbPayWebhookHandler`
+- Receives ZbPay payment confirmations
+- Processes webhook notifications
+- Updates payment status
+- Creates admin notifications
+
+## 🎨 Design System
+
+### Color Palette
+- **Primary Background**: `#0f172a` (slate-900)
+- **Secondary Background**: `#1e293b` (slate-800)
+- **Primary Accent**: `#6D282C` (maroon)
+- **Secondary Accent**: `#f59e0b` (amber)
+- **Text Primary**: `#e2e8f0` (slate-200)
+- **Text Secondary**: `#94a3b8` (slate-400)
+
+### Typography
+- **Font Family**: Inter (Google Fonts)
+- **Weights**: 300, 400, 500, 600, 700, 800, 900
+- **Line Heights**: 150% (body), 120% (headings)
+
+### Spacing System
+- **Base Unit**: 8px
+- **Grid**: 4px, 8px, 12px, 16px, 24px, 32px, 48px, 64px
+
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-**Build Errors with firebase-admin**
-- Ensure `firebase-admin` and `node-fetch` are in dependencies
-- Check that all environment variables are set in Netlify
-- Verify Firebase service account credentials are correct
+#### 1. Firebase Connection Error
+- **Cause**: Invalid Firebase configuration
+- **Solution**: Verify Firebase credentials in environment variables
 
-**Firebase Connection Issues**
-- Verify Firebase configuration in `src/lib/firebase.ts`
-- Check Firebase Realtime Database rules
-- Ensure service account credentials are correct in Netlify environment variables
+#### 2. ZbPay Payment Fails
+- **Cause**: Network issues or invalid API credentials
+- **Solution**: Check ZbPay sandbox status and API keys
 
-**Netlify Functions Not Working**
-- Verify all environment variables are set in Netlify dashboard
-- Check function logs in Netlify Functions tab
-- Ensure Firebase Admin SDK is properly initialized
-- Verify CORS headers in function responses
+#### 3. Student Balance Not Updating
+- **Cause**: Webhook not received or processing error
+- **Solution**: Check Netlify function logs and manual status check
 
-**ZbPay Integration Issues**
-- Confirm sandbox API credentials are correct
-- Check webhook URL is accessible from ZbPay servers
-- Monitor Netlify function logs for API call details
-- Verify return URL format matches expected pattern
+#### 4. PWA Not Installing
+- **Cause**: Missing manifest or HTTPS requirement
+- **Solution**: Verify manifest.json and use HTTPS
 
-**PWA Installation Issues**
-- Ensure HTTPS is enabled (required for PWA)
-- Check manifest.json is accessible
-- Verify service worker registration
-- Clear browser cache and try again
+#### 5. Offline Mode Not Working
+- **Cause**: Service worker registration failure
+- **Solution**: Check service worker registration in browser dev tools
 
-**Settings/Password Change Issues**
-- Check network connectivity
-- Verify user authentication status
-- Monitor browser console for error messages
-- Ensure proper form validation
+### Debug Steps
+1. Check browser console for JavaScript errors
+2. Verify network requests in dev tools
+3. Check Netlify function logs
+4. Validate Firebase database rules
+5. Test ZbPay API endpoints directly
 
-### Development Tips
-- Use browser dev tools to debug Firebase connections
-- Monitor Netlify function logs for backend issues
-- Test payment flows with ZbPay sandbox environment
-- Use React DevTools for state management debugging
-- Check browser console for JavaScript errors
+## 📈 Performance Optimization
 
-### Environment Variable Debugging
-```bash
-# Check if environment variables are set correctly
-# In Netlify function logs, you should see:
-console.log('Environment check:', {
-  hasFirebaseProjectId: !!process.env.FIREBASE_PROJECT_ID,
-  hasFirebaseClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-  hasFirebasePrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-  hasFirebaseDatabaseUrl: !!process.env.FIREBASE_DATABASE_URL
-})
-```
+- **Code Splitting**: Route-based lazy loading
+- **Image Optimization**: WebP format with fallbacks
+- **Caching Strategy**: Aggressive caching of static assets
+- **Bundle Analysis**: Regular bundle size monitoring
+- **Database Indexing**: Optimized Firebase queries
 
-### Git Setup Commands
+## 🔄 Future Enhancements
 
-If you're starting fresh with Git:
+- **Bulk Payment Processing**: Multiple student payments
+- **Advanced Reporting**: Detailed financial analytics
+- **SMS Notifications**: Payment reminders and confirmations
+- **Mobile App**: Native iOS/Android applications
+- **Multi-currency Support**: Support for ZWL and other currencies
+- **Advanced Security**: Two-factor authentication
+- **API Integration**: Third-party accounting systems
 
-```bash
-# Initialize repository
-git init
+## 📞 Support
 
-# Add all files
-git add .
-
-# Initial commit
-git commit -m "Initial commit: Mwenezi High Fees Management PWA"
-
-# Add remote origin (replace with your GitHub repo URL)
-git remote add origin https://github.com/yourusername/mwenezi-fees-management.git
-
-# Push to main branch
-git branch -M main
-git push -u origin main
-```
+For technical support or questions:
+- **Email**: support@mwenezihigh.edu.zw
+- **Phone**: +263 XX XXX XXXX
+- **Documentation**: This README file
+- **Firebase Console**: [Firebase Console](https://console.firebase.google.com/)
+- **Netlify Dashboard**: [Netlify Dashboard](https://app.netlify.com/)
 
 ## 📄 License
 
-This project is proprietary software developed for Mwenezi High School.
-
-## 🤝 Support
-
-For technical support or feature requests, please contact the development team.
+© 2025 Mwenezi High School. All rights reserved.
 
 ---
 
-**Mwenezi High School** - *"Relevant Education for Livelihood"*
+**"Relevant Education for Livelihood"** - Mwenezi High School

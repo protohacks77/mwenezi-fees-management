@@ -1,40 +1,28 @@
 {
   "name": "Mwenezi High Fees Management",
   "short_name": "Mwenezi Fees",
-  "description": "Progressive Web App for Mwenezi High School fees management with ZbPay integration",
+  "description": "School fees management system for Mwenezi High School",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
   "theme_color": "#6D282C",
+  "background_color": "#0f172a",
   "orientation": "portrait-primary",
+  "scope": "/",
   "icons": [
     {
       "src": "/pwa-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/pwa-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/pwa-maskable-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/pwa-maskable-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "finance", "productivity"],
+  "categories": ["education", "finance", "utilities"],
   "lang": "en",
-  "scope": "/",
-  "id": "mwenezi-high-fees-management"
+  "dir": "ltr"
 }

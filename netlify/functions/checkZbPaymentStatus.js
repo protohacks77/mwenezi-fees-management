@@ -1,243 +1,262 @@
-const { getDatabase, ref, get, update } = require('firebase-admin/database')
-const { initializeApp, cert } = require('firebase-admin/app')
-const { z } = require('zod')
-const fetch = require('node-fetch')
+const admin = require('firebase-admin')
 
-// Initialize Firebase Admin
-let app
-try {
-  app = require('firebase-admin').app()
-} catch (e) {
-  app = initializeApp({
-    credential: cert({
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
     }),
     databaseURL: process.env.FIREBASE_DATABASE_URL
   })
 }
 
-const db = getDatabase(app)
+const db = admin.database()
 
-// ZbPay API Credentials from environment variables
-const ZBPAY_API_KEY = process.env.ZBPAY_API_KEY || '3f36fd4b-3b23-4249-b65d-f39dc9df42d4'
-const ZBPAY_API_SECRET = process.env.ZBPAY_API_SECRET || '2f2c32d7-7a32-4523-bcde-1913bf7c171d'
-const ZBPAY_BASE_URL = process.env.ZBPAY_BASE_URL || 'https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway'
+// ZbPay Configuration
+const ZBPAY_CONFIG = {
+  baseUrl: 'https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway',
+  apiKey: '3f36fd4b-3b23-4249-b65d-f39dc9df42d4',
+  apiSecret: '2f2c32d7-7a32-4523-bcde-1913bf7c171d'
+}
 
-// Validation schema
-const checkStatusSchema = z.object({
-  orderRef: z.string().min(1),
-  txId: z.string().min(1)
-})
+const updateStudentFinancials = async (studentId, termKey, amount) => {
+  try {
+    const studentRef = db.ref(`students/${studentId}`)
+    const studentSnapshot = await studentRef.once('value')
+    
+    if (!studentSnapshot.exists()) {
+      throw new Error('Student not found')
+    }
 
-function calculateStudentBalance(terms) {
-  return Object.values(terms).reduce((total, term) => total + (term.fee - term.paid), 0)
+    const student = studentSnapshot.val()
+    const updates = {}
+
+    // Update term payment
+    const currentPaid = student.financials.terms[termKey]?.paid || 0
+    updates[`financials/terms/${termKey}/paid`] = currentPaid + amount
+
+    // Recalculate total balance
+    let totalBalance = 0
+    Object.entries(student.financials.terms).forEach(([key, term]) => {
+      const termBalance = term.fee - (key === termKey ? currentPaid + amount : term.paid)
+      totalBalance += Math.max(0, termBalance)
+    })
+
+    updates['financials/balance'] = totalBalance
+
+    await studentRef.update(updates)
+    
+    return { success: true, newBalance: totalBalance }
+  } catch (error) {
+    console.error('Error updating student financials:', error)
+    throw error
+  }
+}
+
+const createNotification = async (title, message, type = 'success') => {
+  try {
+    const notificationRef = db.ref('notifications').push()
+    await notificationRef.set({
+      id: notificationRef.key,
+      title,
+      message,
+      type,
+      role: 'admin',
+      read: false,
+      createdAt: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error creating notification:', error)
+  }
 }
 
 exports.handler = async (event, context) => {
-  // Only allow GET requests
-  if (event.httpMethod !== 'GET') {
-    return {
-      statusCode: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
-      },
-      body: JSON.stringify({ error: 'Method not allowed' })
-    }
+  // CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
   }
 
-  // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
-      },
+      headers,
       body: ''
     }
   }
 
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    }
+  }
+
   try {
-    // Parse query parameters
-    const { orderRef, txId } = event.queryStringParameters || {}
-    
+    const { orderRef, txId } = JSON.parse(event.body)
+
     if (!orderRef || !txId) {
-      throw new Error('Missing required parameters: orderRef and txId')
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing orderRef or txId' })
+      }
     }
 
-    const validatedData = checkStatusSchema.parse({ orderRef, txId })
-    console.log('Checking payment status for:', validatedData)
-
     // Get transaction from database
-    const transactionSnapshot = await get(ref(db, `transactions/${validatedData.txId}`))
+    const transactionSnapshot = await db.ref(`transactions/${txId}`).once('value')
     if (!transactionSnapshot.exists()) {
-      throw new Error('Transaction not found')
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Transaction not found' })
+      }
     }
 
     const transaction = transactionSnapshot.val()
-    console.log('Found transaction:', transaction.id, 'Status:', transaction.status)
 
     // If already processed, return current status
-    if (transaction.status === 'zb_payment_successful' || transaction.status === 'zb_payment_failed') {
-      console.log('Transaction already processed, returning current status')
+    if (transaction.status === 'ZB Payment Successful' || transaction.status === 'ZB Payment Failed') {
       return {
         statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS'
-        },
+        headers,
         body: JSON.stringify({
           success: true,
-          status: transaction.status,
-          orderReference: transaction.orderReference,
-          transactionId: transaction.id,
-          amount: transaction.amount
+          status: transaction.status.includes('Successful') ? 'PAID' : 'FAILED',
+          transaction
         })
       }
     }
 
-    // Check status with ZbPay API
-    console.log('Checking with ZbPay API...')
-    const zbPayResponse = await fetch(
-      `${ZBPAY_BASE_URL}/payments/transaction/${validatedData.orderRef}/status/check`,
-      {
-        method: 'GET',
-        headers: {
-          'x-api-key': ZBPAY_API_KEY,
-          'x-api-secret': ZBPAY_API_SECRET
-        }
-      }
-    )
-
-    console.log('ZbPay status check response:', zbPayResponse.status)
-    const zbPayData = await zbPayResponse.json()
-    console.log('ZbPay status data:', zbPayData)
-
-    if (!zbPayResponse.ok) {
-      throw new Error(`ZbPay API error: ${zbPayData.message || 'Unknown error'}`)
-    }
-
-    const updates = {}
-    let newStatus = transaction.status
-    let shouldUpdateStudent = false
-
-    // Process ZbPay status
-    if (zbPayData.status === 'PAID' || zbPayData.status === 'SUCCESSFUL') {
-      if (transaction.status === 'pending_zb_confirmation') {
-        console.log('Payment successful, updating student financials')
-        // Payment successful - update student financials
-        const studentSnapshot = await get(ref(db, `students/${transaction.studentId}`))
-        if (studentSnapshot.exists()) {
-          const student = studentSnapshot.val()
-          const updatedTerms = { ...student.financials.terms }
-          
-          if (updatedTerms[transaction.termKey]) {
-            updatedTerms[transaction.termKey].paid += transaction.amount
-            const newBalance = calculateStudentBalance(updatedTerms)
-
-            // Update student financials
-            updates[`students/${transaction.studentId}/financials/terms/${transaction.termKey}/paid`] = 
-              updatedTerms[transaction.termKey].paid
-            updates[`students/${transaction.studentId}/financials/balance`] = newBalance
-            updates[`students/${transaction.studentId}/updatedAt`] = new Date().toISOString()
-
-            shouldUpdateStudent = true
-            newStatus = 'zb_payment_successful'
-
-            // Create notifications
-            const studentNotificationId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-            const adminNotificationId = `notif-${Date.now() + 1}-${Math.random().toString(36).substr(2, 9)}`
-
-            updates[`notifications/${studentNotificationId}`] = {
-              id: studentNotificationId,
-              userId: transaction.studentId,
-              userRole: 'student',
-              title: 'Payment Successful',
-              message: `ZbPay payment of $${transaction.amount.toFixed(2)} completed successfully.`,
-              type: 'success',
-              read: false,
-              createdAt: new Date().toISOString()
-            }
-
-            updates[`notifications/${adminNotificationId}`] = {
-              id: adminNotificationId,
-              userId: 'admin-001',
-              userRole: 'admin',
-              title: 'ZbPay Payment Successful',
-              message: `ZbPay payment of $${transaction.amount.toFixed(2)} for ${student.name} ${student.surname} completed. Ref: ${validatedData.orderRef}`,
-              type: 'success',
-              read: false,
-              createdAt: new Date().toISOString()
-            }
-          }
-        }
-      }
-    } else if (zbPayData.status === 'FAILED' || zbPayData.status === 'CANCELED') {
-      console.log('Payment failed or canceled')
-      newStatus = 'zb_payment_failed'
-
-      // Create failure notification
-      const studentNotificationId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      updates[`notifications/${studentNotificationId}`] = {
-        id: studentNotificationId,
-        userId: transaction.studentId,
-        userRole: 'student',
-        title: 'Payment Failed',
-        message: `Your ZbPay payment failed. Please try again.`,
-        type: 'error',
-        read: false,
-        createdAt: new Date().toISOString()
-      }
-    }
-
-    // Update transaction status
-    updates[`transactions/${transaction.id}/status`] = newStatus
-    updates[`transactions/${transaction.id}/zbPayStatusCheck`] = zbPayData
-    updates[`transactions/${transaction.id}/updatedAt`] = new Date().toISOString()
-
-    // Execute atomic update if there are changes
-    if (Object.keys(updates).length > 0) {
-      console.log('Executing database updates...')
-      await update(ref(db), updates)
-      console.log('Database updated successfully')
-    }
-
-    return {
-      statusCode: 200,
+    // Check status with ZbPay
+    console.log(`Checking ZbPay status for order: ${orderRef}`)
+    
+    const response = await fetch(`${ZBPAY_CONFIG.baseUrl}/payments/transaction/${orderRef}/status/check`, {
+      method: 'GET',
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
-      },
-      body: JSON.stringify({
-        success: true,
-        status: newStatus,
-        orderReference: transaction.orderReference,
-        transactionId: transaction.id,
-        amount: transaction.amount,
-        zbPayStatus: zbPayData.status
+        'x-api-key': ZBPAY_CONFIG.apiKey,
+        'x-api-secret': ZBPAY_CONFIG.apiSecret
+      }
+    })
+
+    const zbPayStatus = await response.json()
+    console.log('ZbPay Status Response:', zbPayStatus)
+
+    if (!response.ok) {
+      console.error('ZbPay API Error:', zbPayStatus)
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'Failed to check payment status',
+          status: 'UNKNOWN'
+        })
+      }
+    }
+
+    const paymentStatus = zbPayStatus.status || zbPayStatus.paymentStatus
+
+    if (paymentStatus === 'PAID' || paymentStatus === 'SUCCESS' || paymentStatus === 'SUCCESSFUL') {
+      // Payment successful - update student financials
+      try {
+        await updateStudentFinancials(transaction.studentId, transaction.termKey, transaction.amount)
+        
+        // Update transaction status
+        await db.ref(`transactions/${txId}`).update({
+          status: 'ZB Payment Successful',
+          zbPayStatusResponse: zbPayStatus,
+          updatedAt: new Date().toISOString()
+        })
+
+        // Get student info for notification
+        const studentSnapshot = await db.ref(`students/${transaction.studentId}`).once('value')
+        const student = studentSnapshot.val()
+
+        // Create admin notification
+        await createNotification(
+          'ZbPay Payment Successful',
+          `ZbPay payment of $${transaction.amount} for ${student.name} ${student.surname} completed successfully. Ref: ${orderRef}`,
+          'success'
+        )
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            status: 'PAID',
+            transaction: {
+              ...transaction,
+              status: 'ZB Payment Successful'
+            }
+          })
+        }
+      } catch (error) {
+        console.error('Error processing successful payment:', error)
+        
+        // Update transaction with error
+        await db.ref(`transactions/${txId}`).update({
+          status: 'ZB Payment Processing Error',
+          error: error.message,
+          updatedAt: new Date().toISOString()
+        })
+
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'Payment confirmed but failed to update student account'
+          })
+        }
+      }
+    } else if (paymentStatus === 'FAILED' || paymentStatus === 'CANCELED' || paymentStatus === 'CANCELLED') {
+      // Payment failed
+      await db.ref(`transactions/${txId}`).update({
+        status: 'ZB Payment Failed',
+        zbPayStatusResponse: zbPayStatus,
+        updatedAt: new Date().toISOString()
       })
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          status: 'FAILED',
+          transaction: {
+            ...transaction,
+            status: 'ZB Payment Failed'
+          }
+        })
+      }
+    } else {
+      // Still pending or unknown status
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          status: 'PENDING',
+          transaction
+        })
+      }
     }
 
   } catch (error) {
     console.error('Error checking ZbPay status:', error)
     
     return {
-      statusCode: 400,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
-      },
+      statusCode: 500,
+      headers,
       body: JSON.stringify({
         success: false,
-        error: error.message || 'Failed to check payment status'
+        error: 'Internal server error'
       })
     }
   }

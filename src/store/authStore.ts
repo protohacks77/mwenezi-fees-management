@@ -1,15 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User } from '@/types'
-import { authenticateUser } from '@/lib/firebase'
+import { User } from '../lib/firebase'
 
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (username: string, password: string) => Promise<boolean>
+  login: (user: User) => void
   logout: () => void
-  checkAuth: () => void
+  setLoading: (loading: boolean) => void
+  updateUser: (updates: Partial<User>) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -18,37 +18,32 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
-
-      login: async (username: string, password: string) => {
-        set({ isLoading: true })
-        try {
-          const user = await authenticateUser(username, password)
-          if (user) {
-            set({ user, isAuthenticated: true, isLoading: false })
-            return true
-          } else {
-            set({ isLoading: false })
-            return false
-          }
-        } catch (error) {
-          console.error('Login error:', error)
-          set({ isLoading: false })
-          return false
-        }
+      
+      login: (user: User) => {
+        set({ user, isAuthenticated: true, isLoading: false })
       },
-
+      
       logout: () => {
-        set({ user: null, isAuthenticated: false })
+        set({ user: null, isAuthenticated: false, isLoading: false })
       },
-
-      checkAuth: () => {
-        const { user } = get()
-        set({ isAuthenticated: !!user })
+      
+      setLoading: (loading: boolean) => {
+        set({ isLoading: loading })
+      },
+      
+      updateUser: (updates: Partial<User>) => {
+        const currentUser = get().user
+        if (currentUser) {
+          set({ user: { ...currentUser, ...updates } })
+        }
       }
     }),
     {
-      name: 'mwenezi-auth-storage',
-      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated })
+      name: 'mwenezi-auth',
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated
+      })
     }
   )
 )

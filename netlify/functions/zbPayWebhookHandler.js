@@ -1,172 +1,238 @@
-const { getDatabase, ref, get, update } = require('firebase-admin/database')
-const { initializeApp, cert } = require('firebase-admin/app')
+const admin = require('firebase-admin')
 
-// Initialize Firebase Admin
-let app
-try {
-  app = require('firebase-admin').app()
-} catch (e) {
-  app = initializeApp({
-    credential: cert({
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
     }),
     databaseURL: process.env.FIREBASE_DATABASE_URL
   })
 }
 
-const db = getDatabase(app)
+const db = admin.database()
 
-function calculateStudentBalance(terms) {
-  return Object.values(terms).reduce((total, term) => total + (term.fee - term.paid), 0)
+const updateStudentFinancials = async (studentId, termKey, amount) => {
+  try {
+    const studentRef = db.ref(`students/${studentId}`)
+    const studentSnapshot = await studentRef.once('value')
+    
+    if (!studentSnapshot.exists()) {
+      throw new Error('Student not found')
+    }
+
+    const student = studentSnapshot.val()
+    const updates = {}
+
+    // Update term payment
+    const currentPaid = student.financials.terms[termKey]?.paid || 0
+    updates[`financials/terms/${termKey}/paid`] = currentPaid + amount
+
+    // Recalculate total balance
+    let totalBalance = 0
+    Object.entries(student.financials.terms).forEach(([key, term]) => {
+      const termBalance = term.fee - (key === termKey ? currentPaid + amount : term.paid)
+      totalBalance += Math.max(0, termBalance)
+    })
+
+    updates['financials/balance'] = totalBalance
+
+    await studentRef.update(updates)
+    
+    return { success: true, newBalance: totalBalance }
+  } catch (error) {
+    console.error('Error updating student financials:', error)
+    throw error
+  }
+}
+
+const createNotification = async (title, message, type = 'success') => {
+  try {
+    const notificationRef = db.ref('notifications').push()
+    await notificationRef.set({
+      id: notificationRef.key,
+      title,
+      message,
+      type,
+      role: 'admin',
+      read: false,
+      createdAt: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error creating notification:', error)
+  }
 }
 
 exports.handler = async (event, context) => {
-  // Only allow POST requests
+  // CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  }
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    }
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
+      headers,
       body: JSON.stringify({ error: 'Method not allowed' })
     }
   }
 
   try {
-    // Parse webhook payload
+    console.log('ZbPay Webhook received:', event.body)
+    
     const webhookData = JSON.parse(event.body)
-    console.log('Received ZbPay webhook:', webhookData)
-
-    const { orderReference, status, amount, transactionId } = webhookData
+    const { orderReference, status, paymentStatus, transactionId, amount } = webhookData
 
     if (!orderReference) {
-      throw new Error('Missing orderReference in webhook')
+      console.error('Missing orderReference in webhook')
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing orderReference' })
+      }
     }
 
     // Find transaction by orderReference
-    const transactionsSnapshot = await get(ref(db, 'transactions'))
+    const transactionsSnapshot = await db.ref('transactions').orderByChild('orderReference').equalTo(orderReference).once('value')
+    
     if (!transactionsSnapshot.exists()) {
-      throw new Error('No transactions found')
+      console.error('Transaction not found for orderReference:', orderReference)
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Transaction not found' })
+      }
     }
 
-    const transactions = transactionsSnapshot.val()
-    const transaction = Object.values(transactions).find(t => t.orderReference === orderReference)
+    // Get the transaction (should be only one)
+    let transaction = null
+    let transactionKey = null
+    
+    transactionsSnapshot.forEach((child) => {
+      transaction = child.val()
+      transactionKey = child.key
+    })
 
     if (!transaction) {
-      throw new Error(`Transaction not found for orderReference: ${orderReference}`)
+      console.error('No transaction data found')
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ error: 'Transaction data not found' })
+      }
     }
 
-    console.log('Found transaction:', transaction.id, 'Current status:', transaction.status)
-
-    // Only process if transaction is still pending
-    if (transaction.status !== 'pending_zb_confirmation') {
-      console.log(`Transaction ${transaction.id} already processed, status: ${transaction.status}`)
+    // Check if already processed
+    if (transaction.status === 'ZB Payment Successful (Webhook)' || 
+        transaction.status === 'ZB Payment Failed (Webhook)') {
+      console.log('Transaction already processed by webhook')
       return {
         statusCode: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*'
-        },
+        headers,
         body: JSON.stringify({ message: 'Already processed' })
       }
     }
 
-    const updates = {}
-    let newStatus = 'zb_payment_failed'
-    let notificationTitle = 'Payment Failed'
-    let notificationMessage = 'Your ZbPay payment failed. Please try again.'
-    let notificationType = 'error'
+    const finalStatus = status || paymentStatus
 
-    // Process based on webhook status
-    if (status === 'PAID' || status === 'SUCCESSFUL') {
-      console.log('Processing successful payment via webhook')
-      // Payment successful - update student financials
-      const studentSnapshot = await get(ref(db, `students/${transaction.studentId}`))
-      if (studentSnapshot.exists()) {
-        const student = studentSnapshot.val()
-        const updatedTerms = { ...student.financials.terms }
+    if (finalStatus === 'PAID' || finalStatus === 'SUCCESS' || finalStatus === 'SUCCESSFUL') {
+      // Payment successful
+      try {
+        await updateStudentFinancials(transaction.studentId, transaction.termKey, transaction.amount)
         
-        if (updatedTerms[transaction.termKey]) {
-          updatedTerms[transaction.termKey].paid += transaction.amount
-          const newBalance = calculateStudentBalance(updatedTerms)
+        // Update transaction status
+        await db.ref(`transactions/${transactionKey}`).update({
+          status: 'ZB Payment Successful (Webhook)',
+          webhookData,
+          updatedAt: new Date().toISOString()
+        })
 
-          // Update student financials
-          updates[`students/${transaction.studentId}/financials/terms/${transaction.termKey}/paid`] = 
-            updatedTerms[transaction.termKey].paid
-          updates[`students/${transaction.studentId}/financials/balance`] = newBalance
-          updates[`students/${transaction.studentId}/updatedAt`] = new Date().toISOString()
+        // Get student info for notification
+        const studentSnapshot = await db.ref(`students/${transaction.studentId}`).once('value')
+        const student = studentSnapshot.val()
 
-          newStatus = 'zb_payment_successful'
-          notificationTitle = 'Payment Successful'
-          notificationMessage = `ZbPay payment of $${transaction.amount.toFixed(2)} completed successfully.`
-          notificationType = 'success'
+        // Create admin notification
+        await createNotification(
+          'ZbPay Payment Confirmed',
+          `ZbPay payment of $${transaction.amount} for ${student.name} ${student.surname} confirmed via webhook. Ref: ${orderReference}`,
+          'success'
+        )
 
-          // Create admin notification
-          const adminNotificationId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-          updates[`notifications/${adminNotificationId}`] = {
-            id: adminNotificationId,
-            userId: 'admin-001',
-            userRole: 'admin',
-            title: 'ZbPay Payment Successful',
-            message: `ZbPay payment of $${transaction.amount.toFixed(2)} for ${student.name} ${student.surname} completed. Ref: ${orderReference}`,
-            type: 'success',
-            read: false,
-            createdAt: new Date().toISOString()
-          }
+        console.log('Webhook processed successfully - payment confirmed')
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ message: 'Webhook processed successfully' })
+        }
+      } catch (error) {
+        console.error('Error processing successful webhook:', error)
+        
+        // Update transaction with error
+        await db.ref(`transactions/${transactionKey}`).update({
+          status: 'ZB Payment Webhook Error',
+          error: error.message,
+          webhookData,
+          updatedAt: new Date().toISOString()
+        })
+
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ error: 'Failed to process successful payment' })
         }
       }
-    }
-
-    // Update transaction status
-    updates[`transactions/${transaction.id}/status`] = newStatus
-    updates[`transactions/${transaction.id}/webhookData`] = webhookData
-    updates[`transactions/${transaction.id}/updatedAt`] = new Date().toISOString()
-
-    // Create student notification
-    const studentNotificationId = `notif-${Date.now() + 1}-${Math.random().toString(36).substr(2, 9)}`
-    updates[`notifications/${studentNotificationId}`] = {
-      id: studentNotificationId,
-      userId: transaction.studentId,
-      userRole: 'student',
-      title: notificationTitle,
-      message: notificationMessage,
-      type: notificationType,
-      read: false,
-      createdAt: new Date().toISOString()
-    }
-
-    // Execute atomic update
-    console.log('Executing webhook database updates...')
-    await update(ref(db), updates)
-
-    console.log(`Successfully processed webhook for transaction ${transaction.id}`)
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({ 
-        message: 'Webhook processed successfully',
-        transactionId: transaction.id,
-        status: newStatus
+    } else if (finalStatus === 'FAILED' || finalStatus === 'CANCELED' || finalStatus === 'CANCELLED') {
+      // Payment failed
+      await db.ref(`transactions/${transactionKey}`).update({
+        status: 'ZB Payment Failed (Webhook)',
+        webhookData,
+        updatedAt: new Date().toISOString()
       })
+
+      console.log('Webhook processed - payment failed')
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ message: 'Webhook processed - payment failed' })
+      }
+    } else {
+      // Unknown status
+      await db.ref(`transactions/${transactionKey}`).update({
+        status: 'ZB Payment Unknown Status (Webhook)',
+        webhookData,
+        updatedAt: new Date().toISOString()
+      })
+
+      console.log('Webhook processed - unknown status:', finalStatus)
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ message: 'Webhook processed - unknown status' })
+      }
     }
 
   } catch (error) {
     console.error('Error processing ZbPay webhook:', error)
     
     return {
-      statusCode: 400,
-      headers: {
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({
-        error: error.message || 'Failed to process webhook'
-      })
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Internal server error' })
     }
   }
 }

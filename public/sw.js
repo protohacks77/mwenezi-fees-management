@@ -1,13 +1,13 @@
 const CACHE_NAME = 'mwenezi-fees-v1'
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/src/main.tsx',
-  '/src/index.css',
-  '/manifest.json'
+  '/static/js/bundle.js',
+  '/static/css/main.css',
+  '/manifest.json',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap'
 ]
 
-// Install event - cache resources
+// Install service worker
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -15,10 +15,13 @@ self.addEventListener('install', (event) => {
         console.log('Opened cache')
         return cache.addAll(urlsToCache)
       })
+      .catch((error) => {
+        console.error('Cache install failed:', error)
+      })
   )
 })
 
-// Fetch event - serve from cache when offline
+// Fetch event
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
@@ -27,12 +30,37 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response
         }
-        return fetch(event.request)
+        
+        // Clone the request
+        const fetchRequest = event.request.clone()
+        
+        return fetch(fetchRequest).then((response) => {
+          // Check if response is valid
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response
+          }
+          
+          // Clone the response
+          const responseToCache = response.clone()
+          
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              cache.put(event.request, responseToCache)
+            })
+          
+          return response
+        }).catch((error) => {
+          console.error('Fetch failed:', error)
+          // Return offline page if available
+          if (event.request.destination === 'document') {
+            return caches.match('/')
+          }
+        })
       })
   )
 })
 
-// Activate event - clean up old caches
+// Activate service worker
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -47,3 +75,72 @@ self.addEventListener('activate', (event) => {
     })
   )
 })
+
+// Background sync for offline payments
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'background-sync-payments') {
+    event.waitUntil(
+      // Sync offline payment data when back online
+      syncOfflinePayments()
+    )
+  }
+})
+
+// Push notifications
+self.addEventListener('push', (event) => {
+  const options = {
+    body: event.data ? event.data.text() : 'New notification',
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    vibrate: [100, 50, 100],
+    data: {
+      dateOfArrival: Date.now(),
+      primaryKey: 1
+    },
+    actions: [
+      {
+        action: 'explore',
+        title: 'View Details',
+        icon: '/images/checkmark.png'
+      },
+      {
+        action: 'close',
+        title: 'Close',
+        icon: '/images/xmark.png'
+      }
+    ]
+  }
+  
+  event.waitUntil(
+    self.registration.showNotification('Mwenezi High Fees', options)
+  )
+})
+
+// Notification click
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  
+  if (event.action === 'explore') {
+    // Open the app
+    event.waitUntil(
+      clients.openWindow('/')
+    )
+  }
+})
+
+// Offline payment sync function
+async function syncOfflinePayments() {
+  try {
+    // Check for offline payment data in IndexedDB
+    // This would sync any payments that were initiated offline
+    console.log('Syncing offline payments...')
+    
+    // Implementation would depend on your offline storage strategy
+    // For now, just log that sync was attempted
+    
+    return Promise.resolve()
+  } catch (error) {
+    console.error('Failed to sync offline payments:', error)
+    return Promise.reject(error)
+  }
+}
