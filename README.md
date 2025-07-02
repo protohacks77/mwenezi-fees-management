@@ -120,7 +120,7 @@ npm install
 
 1. **Connect to Netlify:**
    ```bash
-   # Initialize git repository
+   # Initialize git repository (if not already done)
    git init
    git add .
    git commit -m "Initial commit"
@@ -151,28 +151,30 @@ In your Netlify dashboard, go to "Site settings" > "Environment variables" and a
 **Copy and paste these exact variable names and values:**
 
 ```bash
-# Firebase Configuration
+# Firebase Configuration (Replace with your actual values)
 FIREBASE_PROJECT_ID=mwenezi-fees-management
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@mwenezi-fees-management.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----
 FIREBASE_DATABASE_URL=https://mwenezi-fees-management-default-rtdb.firebaseio.com
 
-# ZbPay Configuration (Sandbox)
+# ZbPay Configuration (Sandbox - Use these exact values)
 ZBPAY_API_KEY=3f36fd4b-3b23-4249-b65d-f39dc9df42d4
 ZBPAY_API_SECRET=2f2c32d7-7a32-4523-bcde-1913bf7c171d
 ZBPAY_BASE_URL=https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway
 
-# Application URLs
+# Application URLs (Replace with your actual domain)
 SITE_URL=https://mghpayfees.netlify.app
 RETURN_URL=https://mghpayfees.netlify.app/#/student/payment-status
 WEBHOOK_URL=https://mghpayfees.netlify.app/.netlify/functions/zbPayWebhookHandler
 ```
 
 **Important Notes:**
-- Replace `FIREBASE_CLIENT_EMAIL` with your actual service account email
-- Replace `FIREBASE_PRIVATE_KEY` with your actual private key (keep the `\n` characters)
+- Replace `FIREBASE_PROJECT_ID` with your actual Firebase project ID
+- Replace `FIREBASE_CLIENT_EMAIL` with your actual service account email from the downloaded JSON
+- Replace `FIREBASE_PRIVATE_KEY` with your actual private key from the downloaded JSON (keep the `\n` characters)
 - Replace `FIREBASE_DATABASE_URL` with your actual database URL
-- The ZbPay credentials are for sandbox testing
+- The ZbPay credentials are for sandbox testing - use exactly as shown
+- Replace the URLs with your actual Netlify domain
 
 ### 5. Firebase Security Rules
 
@@ -298,6 +300,11 @@ The PWA provides read-only access to cached data when offline:
 
 ### Common Issues
 
+**Build Errors with firebase-admin**
+- Ensure `firebase-admin` and `node-fetch` are in dependencies
+- Check that all environment variables are set in Netlify
+- Verify Firebase service account credentials are correct
+
 **Firebase Connection Issues**
 - Verify Firebase configuration in `src/lib/firebase.ts`
 - Check Firebase Realtime Database rules
@@ -344,6 +351,28 @@ console.log('Environment check:', {
   hasFirebasePrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
   hasFirebaseDatabaseUrl: !!process.env.FIREBASE_DATABASE_URL
 })
+```
+
+### Git Setup Commands
+
+If you're starting fresh with Git:
+
+```bash
+# Initialize repository
+git init
+
+# Add all files
+git add .
+
+# Initial commit
+git commit -m "Initial commit: Mwenezi High Fees Management PWA"
+
+# Add remote origin (replace with your GitHub repo URL)
+git remote add origin https://github.com/yourusername/mwenezi-fees-management.git
+
+# Push to main branch
+git branch -M main
+git push -u origin main
 ```
 
 ## 📄 License

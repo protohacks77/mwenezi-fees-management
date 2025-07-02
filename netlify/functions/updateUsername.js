@@ -3,8 +3,11 @@ const { initializeApp, cert } = require('firebase-admin/app')
 const { z } = require('zod')
 
 // Initialize Firebase Admin
-if (!getDatabase().app) {
-  initializeApp({
+let app
+try {
+  app = require('firebase-admin').app()
+} catch (e) {
+  app = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -14,7 +17,7 @@ if (!getDatabase().app) {
   })
 }
 
-const db = getDatabase()
+const db = getDatabase(app)
 
 // Validation schema
 const updateUsernameSchema = z.object({

@@ -2,11 +2,13 @@ const { getDatabase, ref, get, set, update } = require('firebase-admin/database'
 const { initializeApp, cert } = require('firebase-admin/app')
 const { z } = require('zod')
 
-// Initialize Firebase Admin (you'll need to set up service account)
-if (!getDatabase().app) {
-  initializeApp({
+// Initialize Firebase Admin
+let app
+try {
+  app = require('firebase-admin').app()
+} catch (e) {
+  app = initializeApp({
     credential: cert({
-      // These should be environment variables in Netlify
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
@@ -15,7 +17,7 @@ if (!getDatabase().app) {
   })
 }
 
-const db = getDatabase()
+const db = getDatabase(app)
 
 // Validation schema
 const createStudentSchema = z.object({

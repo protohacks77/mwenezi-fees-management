@@ -2,8 +2,11 @@ const { getDatabase, ref, get, update } = require('firebase-admin/database')
 const { initializeApp, cert } = require('firebase-admin/app')
 
 // Initialize Firebase Admin
-if (!getDatabase().app) {
-  initializeApp({
+let app
+try {
+  app = require('firebase-admin').app()
+} catch (e) {
+  app = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -13,7 +16,7 @@ if (!getDatabase().app) {
   })
 }
 
-const db = getDatabase()
+const db = getDatabase(app)
 
 function calculateStudentBalance(terms) {
   return Object.values(terms).reduce((total, term) => total + (term.fee - term.paid), 0)

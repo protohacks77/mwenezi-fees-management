@@ -4,8 +4,11 @@ const { z } = require('zod')
 const fetch = require('node-fetch')
 
 // Initialize Firebase Admin
-if (!getDatabase().app) {
-  initializeApp({
+let app
+try {
+  app = require('firebase-admin').app()
+} catch (e) {
+  app = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -15,12 +18,12 @@ if (!getDatabase().app) {
   })
 }
 
-const db = getDatabase()
+const db = getDatabase(app)
 
-// ZbPay API Credentials (Sandbox)
-const ZBPAY_API_KEY = '3f36fd4b-3b23-4249-b65d-f39dc9df42d4'
-const ZBPAY_API_SECRET = '2f2c32d7-7a32-4523-bcde-1913bf7c171d'
-const ZBPAY_BASE_URL = 'https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway'
+// ZbPay API Credentials from environment variables
+const ZBPAY_API_KEY = process.env.ZBPAY_API_KEY || '3f36fd4b-3b23-4249-b65d-f39dc9df42d4'
+const ZBPAY_API_SECRET = process.env.ZBPAY_API_SECRET || '2f2c32d7-7a32-4523-bcde-1913bf7c171d'
+const ZBPAY_BASE_URL = process.env.ZBPAY_BASE_URL || 'https://zbnet.zb.co.zw/wallet_sandbox_api/payments-gateway'
 
 // Validation schema
 const initiatePaymentSchema = z.object({
